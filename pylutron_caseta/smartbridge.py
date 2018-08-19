@@ -53,6 +53,7 @@ class Smartbridge:
         def _connect():
             res = yield from open_connection(hostname,
                                              port,
+                                             server_hostname='',
                                              ssl=ssl_context,
                                              loop=loop,
                                              family=socket.AF_INET)
@@ -310,7 +311,10 @@ class Smartbridge:
         _LOG.debug("Loading devices")
         self._writer.write({
             "CommuniqueType": "ReadRequest", "Header": {"Url": "/device"}})
-        device_json = yield from self._reader.read()
+        while True:
+            device_json = yield from self._reader.read()
+            if device_json['CommuniqueType'] == 'ReadResponse':
+                break
         for device in device_json['Body']['Devices']:
             _LOG.debug(device)
             device_id = device['href'][device['href'].rfind('/') + 1:]
@@ -318,12 +322,16 @@ class Smartbridge:
             if 'LocalZones' in device:
                 device_zone = device['LocalZones'][0]['href']
                 device_zone = device_zone[device_zone.rfind('/') + 1:]
-            device_name = device['Name']
+            device_name = '_'.join(device['FullyQualifiedName'])
             device_type = device['DeviceType']
+            device_model = device['ModelNumber']
+            device_serial = device['SerialNumber']
             self.devices[device_id] = {'device_id': device_id,
                                        'name': device_name,
                                        'type': device_type,
                                        'zone': device_zone,
+                                       'model': device_model,
+                                       'serial': device_serial,
                                        'current_state': -1}
 
     @asyncio.coroutine
@@ -337,7 +345,10 @@ class Smartbridge:
         self._writer.write({
             "CommuniqueType": "ReadRequest",
             "Header": {"Url": "/virtualbutton"}})
-        scene_json = yield from self._reader.read()
+        while True:
+            scene_json = yield from self._reader.read()
+            if scene_json['CommuniqueType'] == 'ReadResponse':
+                break
         for scene in scene_json['Body']['VirtualButtons']:
             _LOG.debug(scene)
             if scene['IsProgrammed']:

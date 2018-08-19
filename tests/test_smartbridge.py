@@ -10,7 +10,11 @@ Bridge = namedtuple('Bridge', ('target', 'reader', 'writer'))
 
 class _FakeLeapWriter:
     def __init__(self, loop):
-        self.queue = asyncio.Queue(loop=loop)
+        try:
+            self.queue = asyncio.JoinableQueue(loop=loop)
+        except AttributeError:
+            self.queue = asyncio.Queue(loop=loop)
+
         self.closed = False
 
     def write(self, obj):
@@ -27,7 +31,10 @@ class _FakeLeapWriter:
 class _FakeLeapReader:
     def __init__(self, loop):
         self._loop = loop
-        self.queue = asyncio.Queue(loop=loop)
+        try:
+            self.queue = asyncio.JoinableQueue(loop=loop)
+        except AttributeError:
+            self.queue = asyncio.Queue(loop=loop)
 
     def exception(self):
         return None
@@ -178,12 +185,16 @@ def test_device_list(event_loop, bridge):
             "name": "Smart Bridge",
             "type": "SmartBridge",
             "zone": None,
-            "current_state": -1},
+            "current_state": -1,
+            "model": "L-BDG2-WH",
+            "serial": 1234},
         "2": {
             "device_id": "2",
-            "name": "Lights",
+            "name": "Hallway_Lights",
             "type": "WallDimmer",
             "zone": "1",
+            "model": "PD-6WCL-XX",
+            "serial": 2345,
             "current_state": -1}}
 
     yield from bridge.reader.queue.put({
